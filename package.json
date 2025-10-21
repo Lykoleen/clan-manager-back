@@ -1,0 +1,33 @@
+{
+  "name": "catbreakers",
+  "version": "1.0.0",
+  "description": "Gestionnaire de Clan Clash of Clans - Frontend + Backend",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js",
+    "build": "echo 'Build completed'",
+    "test": "echo 'Tests not implemented yet'"
+  },
+  "keywords": [
+    "clash-of-clans",
+    "clan-management",
+    "pwa",
+    "nodejs",
+    "express",
+    "api"
+  ],
+  "author": "Tony",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tony/catbreakers.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tony/catbreakers/issues"
+  },
+  "homepage": "https://github.com/tony/catbreakers#readme"
+}
