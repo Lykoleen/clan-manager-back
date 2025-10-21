@@ -1,7 +1,7 @@
 {
-  "name": "catbreakers",
+  "name": "clan-manager-back",
   "version": "1.0.0",
-  "description": "Gestionnaire de Clan Clash of Clans - Frontend + Backend",
+  "description": "Gestionnaire de Clan Clash of Clans - Backend",
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
@@ -9,13 +9,29 @@
     "build": "echo 'Build completed'",
     "test": "echo 'Tests not implemented yet'"
   },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7",
+    "pg": "^8.11.3",
+    "sequelize": "^6.35.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
   "keywords": [
     "clash-of-clans",
     "clan-management",
     "pwa",
     "nodejs",
     "express",
-    "api"
+    "api",
+    "postgresql",
+    "neon",
+    "proxy",
+    "synchronization",
+    "cors"
   ],
   "author": "Tony",
   "license": "MIT",
