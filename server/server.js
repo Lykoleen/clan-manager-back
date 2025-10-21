@@ -25,7 +25,6 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, '..', 'public'))); // Servir les fichiers statiques depuis le dossier public
 
 // Logging des requêtes
 app.use((req, res, next) => {
@@ -47,9 +46,20 @@ app.use('/api/players', playersRouter);
 const clanDbRouter = require('./routes/clan-db');
 app.use('/api/clan', clanDbRouter);
 
-// Route pour servir l'application
+// Route racine pour l'API backend
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+    res.json({
+        message: 'API CatBreakers Backend',
+        version: '1.0.0',
+        endpoints: {
+            clans: '/api/clans/:clanTag',
+            players: '/api/players/:playerTag',
+            clanMembers: '/api/clan/:clanTag/members',
+            clanStats: '/api/clan/:clanTag/stats'
+        },
+        status: 'online',
+        database: 'connected'
+    });
 });
 
 // Gestion des erreurs globales
