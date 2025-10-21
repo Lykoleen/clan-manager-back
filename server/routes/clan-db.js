@@ -2,7 +2,7 @@
 
 const express = require('express');
 const fetch = require('node-fetch');
-const { Clan, Member, WarData } = require('../models');
+const { Clan, Member } = require('../models');
 
 const router = express.Router();
 
@@ -10,47 +10,31 @@ const router = express.Router();
 const API_TOKEN = process.env.CLASH_API_TOKEN;
 const API_BASE_URL = process.env.API_BASE_URL || 'https://api.clashofclans.com/v1';
 
-// GET /api/clan/:clanTag/members - Récupérer les données supplémentaires d'un clan
+// GET /api/clan/:clanTag/members - Récupérer les commentaires et participations d'un clan
 router.get('/:clanTag/members', async (req, res) => {
     try {
         const { clanTag } = req.params;
         const cleanTag = clanTag.replace('#', '');
         
-        // Rechercher le clan dans la base de données
-        const clan = await Clan.findOne({
-            where: { clanTag: cleanTag },
-            include: [{
-                model: Member,
-                where: { isActive: true },
-                required: false
-            }]
+        // Rechercher les membres du clan dans la base de données
+        const members = await Member.findAll({
+            where: { clanTag: cleanTag }
         });
 
-        if (!clan) {
-            // Si le clan n'existe pas, retourner une structure vide
-            console.log(`📄 Aucune donnée supplémentaire pour le clan ${cleanTag}`);
-            return res.json({ clanTag: cleanTag, members: {} });
-        }
-
         // Convertir les membres en format attendu par le frontend
-        const members = {};
-        clan.Members.forEach(member => {
-            members[member.memberTag] = {
-                ...member.dataValues,
-                customData: member.customData || {},
-                notes: member.notes || ''
+        const membersData = {};
+        members.forEach(member => {
+            membersData[member.memberTag] = {
+                name: member.name,
+                comment: member.comment || '',
+                participations: member.participations || {}
             };
         });
 
-        console.log(`📖 Récupération des données supplémentaires pour le clan ${cleanTag} (${clan.Members.length} membres)`);
+        console.log(`📖 Récupération des données pour le clan ${cleanTag} (${members.length} membres)`);
         res.json({ 
             clanTag: cleanTag, 
-            members: members,
-            clanInfo: {
-                clanName: clan.clanName,
-                memberCount: clan.memberCount,
-                lastUpdated: clan.lastUpdated
-            }
+            members: membersData
         });
     } catch (error) {
         console.error('❌ Erreur lecture données clan:', error);
@@ -58,11 +42,11 @@ router.get('/:clanTag/members', async (req, res) => {
     }
 });
 
-// POST /api/clan/:clanTag/members - Sauvegarder les données supplémentaires d'un clan
+// POST /api/clan/:clanTag/members - Sauvegarder les commentaires et participations d'un clan
 router.post('/:clanTag/members', async (req, res) => {
     try {
         const { clanTag } = req.params;
-        const { members, clanInfo } = req.body;
+        const { members } = req.body;
         const cleanTag = clanTag.replace('#', '');
         
         // Validation basique
@@ -70,37 +54,11 @@ router.post('/:clanTag/members', async (req, res) => {
             return res.status(400).json({ error: 'Le body doit contenir un objet members' });
         }
 
-        // Créer ou mettre à jour le clan
-        const [clan, clanCreated] = await Clan.findOrCreate({
+        // Créer le clan s'il n'existe pas
+        await Clan.findOrCreate({
             where: { clanTag: cleanTag },
-            defaults: {
-                clanTag: cleanTag,
-                clanName: clanInfo?.name || null,
-                memberCount: clanInfo?.memberCount || null,
-                requiredTrophies: clanInfo?.requiredTrophies || null,
-                warFrequency: clanInfo?.warFrequency || null,
-                clanLevel: clanInfo?.clanLevel || null,
-                clanPoints: clanInfo?.clanPoints || null,
-                location: clanInfo?.location || null,
-                badgeUrls: clanInfo?.badgeUrls || null,
-                lastUpdated: new Date()
-            }
+            defaults: { clanTag: cleanTag }
         });
-
-        // Si le clan existait déjà, mettre à jour ses informations
-        if (!clanCreated && clanInfo) {
-            await clan.update({
-                clanName: clanInfo.name || clan.clanName,
-                memberCount: clanInfo.memberCount || clan.memberCount,
-                requiredTrophies: clanInfo.requiredTrophies || clan.requiredTrophies,
-                warFrequency: clanInfo.warFrequency || clan.warFrequency,
-                clanLevel: clanInfo.clanLevel || clan.clanLevel,
-                clanPoints: clanInfo.clanPoints || clan.clanPoints,
-                location: clanInfo.location || clan.location,
-                badgeUrls: clanInfo.badgeUrls || clan.badgeUrls,
-                lastUpdated: new Date()
-            });
-        }
 
         let updatedMembersCount = 0;
 
@@ -114,28 +72,9 @@ router.post('/:clanTag/members', async (req, res) => {
                 defaults: {
                     memberTag: cleanMemberTag,
                     name: memberData.name || '',
-                    role: memberData.role || null,
-                    expLevel: memberData.expLevel || null,
-                    league: memberData.league || null,
-                    trophies: memberData.trophies || null,
-                    versusTrophies: memberData.versusTrophies || null,
-                    clanRank: memberData.clanRank || null,
-                    previousClanRank: memberData.previousClanRank || null,
-                    donations: memberData.donations || null,
-                    donationsReceived: memberData.donationsReceived || null,
-                    townHallLevel: memberData.townHallLevel || null,
-                    builderHallLevel: memberData.builderHallLevel || null,
-                    warPreference: memberData.warPreference || null,
-                    attackWins: memberData.attackWins || null,
-                    defenseWins: memberData.defenseWins || null,
-                    heroLevels: memberData.heroLevels || null,
-                    spells: memberData.spells || null,
-                    troops: memberData.troops || null,
-                    customData: memberData.customData || {},
-                    notes: memberData.notes || '',
-                    isActive: true,
-                    lastSeen: new Date(),
-                    lastUpdated: new Date()
+                    clanTag: cleanTag,
+                    comment: memberData.comment || '',
+                    participations: memberData.participations || {}
                 }
             });
 
@@ -143,42 +82,20 @@ router.post('/:clanTag/members', async (req, res) => {
             if (!memberCreated) {
                 await member.update({
                     name: memberData.name || member.name,
-                    role: memberData.role || member.role,
-                    expLevel: memberData.expLevel || member.expLevel,
-                    league: memberData.league || member.league,
-                    trophies: memberData.trophies || member.trophies,
-                    versusTrophies: memberData.versusTrophies || member.versusTrophies,
-                    clanRank: memberData.clanRank || member.clanRank,
-                    previousClanRank: memberData.previousClanRank || member.previousClanRank,
-                    donations: memberData.donations || member.donations,
-                    donationsReceived: memberData.donationsReceived || member.donationsReceived,
-                    townHallLevel: memberData.townHallLevel || member.townHallLevel,
-                    builderHallLevel: memberData.builderHallLevel || member.builderHallLevel,
-                    warPreference: memberData.warPreference || member.warPreference,
-                    attackWins: memberData.attackWins || member.attackWins,
-                    defenseWins: memberData.defenseWins || member.defenseWins,
-                    heroLevels: memberData.heroLevels || member.heroLevels,
-                    spells: memberData.spells || member.spells,
-                    troops: memberData.troops || member.troops,
-                    customData: memberData.customData || member.customData,
-                    notes: memberData.notes || member.notes,
-                    isActive: true,
-                    lastSeen: new Date(),
-                    lastUpdated: new Date()
+                    comment: memberData.comment || member.comment,
+                    participations: memberData.participations || member.participations
                 });
             }
 
             updatedMembersCount++;
         }
 
-        console.log(`💾 Sauvegarde des données supplémentaires pour le clan ${cleanTag} (${updatedMembersCount} membres)`);
+        console.log(`💾 Sauvegarde des données pour le clan ${cleanTag} (${updatedMembersCount} membres)`);
         
         res.json({ 
             message: 'ok', 
             clanTag: cleanTag, 
-            updatedMembers: updatedMembersCount,
-            clanCreated: clanCreated,
-            membersCreated: updatedMembersCount
+            updatedMembers: updatedMembersCount
         });
     } catch (error) {
         console.error('❌ Erreur sauvegarde données clan:', error);
@@ -194,34 +111,21 @@ router.post('/:clanTag/member/:memberTag', async (req, res) => {
         const cleanClanTag = clanTag.replace('#', '');
         const cleanMemberTag = memberTag.replace('#', '');
         
+        // Créer le clan s'il n'existe pas
+        await Clan.findOrCreate({
+            where: { clanTag: cleanClanTag },
+            defaults: { clanTag: cleanClanTag }
+        });
+        
         // Créer ou mettre à jour le membre
         const [member, memberCreated] = await Member.findOrCreate({
             where: { memberTag: cleanMemberTag },
             defaults: {
                 memberTag: cleanMemberTag,
                 name: memberData.name || '',
-                role: memberData.role || null,
-                expLevel: memberData.expLevel || null,
-                league: memberData.league || null,
-                trophies: memberData.trophies || null,
-                versusTrophies: memberData.versusTrophies || null,
-                clanRank: memberData.clanRank || null,
-                previousClanRank: memberData.previousClanRank || null,
-                donations: memberData.donations || null,
-                donationsReceived: memberData.donationsReceived || null,
-                townHallLevel: memberData.townHallLevel || null,
-                builderHallLevel: memberData.builderHallLevel || null,
-                warPreference: memberData.warPreference || null,
-                attackWins: memberData.attackWins || null,
-                defenseWins: memberData.defenseWins || null,
-                heroLevels: memberData.heroLevels || null,
-                spells: memberData.spells || null,
-                troops: memberData.troops || null,
-                customData: memberData.customData || {},
-                notes: memberData.notes || '',
-                isActive: true,
-                lastSeen: new Date(),
-                lastUpdated: new Date()
+                clanTag: cleanClanTag,
+                comment: memberData.comment || '',
+                participations: memberData.participations || {}
             }
         });
 
@@ -229,28 +133,8 @@ router.post('/:clanTag/member/:memberTag', async (req, res) => {
         if (!memberCreated) {
             await member.update({
                 name: memberData.name || member.name,
-                role: memberData.role || member.role,
-                expLevel: memberData.expLevel || member.expLevel,
-                league: memberData.league || member.league,
-                trophies: memberData.trophies || member.trophies,
-                versusTrophies: memberData.versusTrophies || member.versusTrophies,
-                clanRank: memberData.clanRank || member.clanRank,
-                previousClanRank: memberData.previousClanRank || member.previousClanRank,
-                donations: memberData.donations || member.donations,
-                donationsReceived: memberData.donationsReceived || member.donationsReceived,
-                townHallLevel: memberData.townHallLevel || member.townHallLevel,
-                builderHallLevel: memberData.builderHallLevel || member.builderHallLevel,
-                warPreference: memberData.warPreference || member.warPreference,
-                attackWins: memberData.attackWins || member.attackWins,
-                defenseWins: memberData.defenseWins || member.defenseWins,
-                heroLevels: memberData.heroLevels || member.heroLevels,
-                spells: memberData.spells || member.spells,
-                troops: memberData.troops || member.troops,
-                customData: memberData.customData || member.customData,
-                notes: memberData.notes || member.notes,
-                isActive: true,
-                lastSeen: new Date(),
-                lastUpdated: new Date()
+                comment: memberData.comment || member.comment,
+                participations: memberData.participations || member.participations
             });
         }
 
@@ -265,43 +149,6 @@ router.post('/:clanTag/member/:memberTag', async (req, res) => {
     } catch (error) {
         console.error('❌ Erreur sauvegarde membre:', error);
         res.status(500).json({ error: 'Erreur lors de la sauvegarde du membre' });
-    }
-});
-
-// GET /api/clan/:clanTag/stats - Récupérer les statistiques d'un clan
-router.get('/:clanTag/stats', async (req, res) => {
-    try {
-        const { clanTag } = req.params;
-        const cleanTag = clanTag.replace('#', '');
-        
-        const clan = await Clan.findOne({
-            where: { clanTag: cleanTag },
-            include: [{
-                model: Member,
-                where: { isActive: true },
-                required: false
-            }]
-        });
-
-        if (!clan) {
-            return res.status(404).json({ error: 'Clan non trouvé' });
-        }
-
-        const stats = {
-            clanTag: cleanTag,
-            clanName: clan.clanName,
-            memberCount: clan.Members.length,
-            averageTrophies: clan.Members.reduce((sum, m) => sum + (m.trophies || 0), 0) / clan.Members.length,
-            averageTownHall: clan.Members.reduce((sum, m) => sum + (m.townHallLevel || 0), 0) / clan.Members.length,
-            totalDonations: clan.Members.reduce((sum, m) => sum + (m.donations || 0), 0),
-            totalDonationsReceived: clan.Members.reduce((sum, m) => sum + (m.donationsReceived || 0), 0),
-            lastUpdated: clan.lastUpdated
-        };
-
-        res.json(stats);
-    } catch (error) {
-        console.error('❌ Erreur récupération stats clan:', error);
-        res.status(500).json({ error: 'Erreur lors de la récupération des statistiques' });
     }
 });
 
